@@ -59,7 +59,7 @@ ${JSON.stringify(life)}`;
     }
 
     const response = await client.responses.create({
-      model: 'gpt-5.6',
+      model: 'gpt-5.6-sol',
       instructions,
       input,
       store: false
