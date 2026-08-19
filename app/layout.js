@@ -1,8 +1,8 @@
 import './globals.css';
 
 export const metadata = {
-  title: 'Jyotish Oracle — Life Intelligence',
-  description: 'Personal Jyotish, I Ching, dreams and life-pattern intelligence.'
+  title: 'Signal — Life Intelligence',
+  description: 'A private life intelligence system for decisions, dreams, people and Jyotish.'
 };
 
 export default function RootLayout({ children }) {
