@@ -1,35 +1,162 @@
 'use client';
-import {useEffect,useMemo,useState} from 'react';
-import {profile,birthTimeLabel} from '../lib/profile';
-import {castIChing,lineGlyph} from '../lib/iching';
-import {loadState,saveState,resetState,exportState} from '../lib/storage';
-import {nextQuestion} from '../lib/questions';
-const uid=(p='x')=>`${p}-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
-const today=()=>new Date().toISOString().slice(0,10);
-export default function Home(){
- const [tab,setTab]=useState('daily'),[state,setState]=useState(null),[question,setQuestion]=useState(''),[answer,setAnswer]=useState(''),[loading,setLoading]=useState(false),[cast,setCast]=useState(null),[dream,setDream]=useState(''),[dreamTitle,setDreamTitle]=useState(''),[personId,setPersonId]=useState(''),[adaptiveAnswer,setAdaptiveAnswer]=useState(''),[options,setOptions]=useState(['','','']),[journal,setJournal]=useState('');
- const [newPerson,setNewPerson]=useState({name:'',relationship:'',birthday:'',presence:''});
- const date=useMemo(()=>new Intl.DateTimeFormat('en-GB',{dateStyle:'full'}).format(new Date()),[]);
- useEffect(()=>setState(loadState()),[]);useEffect(()=>{if(state)saveState(state)},[state]);
- if(!state)return <main className="loadingShell">Loading your life model…</main>;
- const aq=nextQuestion(state), selected=state.people.find(p=>p.id===personId);
- async function run(mode,payload={}){setLoading(true);setAnswer('');try{const r=await fetch('/api/read',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({mode,question:payload.question??question,cast:payload.cast??null,options:payload.options??null,lifeState:state})});const j=await r.json();setAnswer(j.text||'');return j.text||''}catch(e){const t='Reading failed: '+e.message;setAnswer(t);return t}finally{setLoading(false)}}
- function doCast(){const c=castIChing();setCast(c);setState(s=>({...s,memory:[...s.memory,{id:uid('signal'),type:'symbolic_signal',createdAt:new Date().toISOString(),text:`I Ching: ${c.primary} ${c.primaryName} → ${c.relating} ${c.relatingName}`}]}))}
- async function analyseDream(c=null){if(!dream.trim())return;const text=await run('dream',{question:dream,cast:c});setState(s=>({...s,dreams:[...s.dreams,{id:uid('dream'),date:today(),title:dreamTitle||'Untitled dream',text:dream,cast:c,analysis:text}]}));setDream('');setDreamTitle('')}
- async function saveDecision(c=null){if(!question.trim())return;const opts=options.filter(Boolean);const text=await run('compare',{question,cast:c,options:opts});setState(s=>({...s,decisions:[...s.decisions,{id:uid('decision'),date:today(),question,options:opts,cast:c,reading:text,outcome:''}]}))}
- function addPerson(){if(!newPerson.name.trim())return;setState(s=>({...s,people:[...s.people,{...newPerson,id:uid('person'),active:true}]}));setNewPerson({name:'',relationship:'',birthday:'',presence:''})}
- function answerAQ(){if(!aq||!adaptiveAnswer.trim())return;setState(s=>({...s,questionsAnswered:[...s.questionsAnswered,{id:aq.id,question:aq.question,answer:adaptiveAnswer,date:today()}]}));setAdaptiveAnswer('')}
- function saveJournal(){if(!journal.trim())return;setState(s=>({...s,journal:[...s.journal,{id:uid('journal'),date:today(),text:journal}]}));setJournal('')}
- const nav=[['daily','Daily'],['ask','Ask'],['iching','I Ching'],['dreams','Dreams'],['decisions','Decisions'],['people','People'],['projects','Projects'],['timeline','Timeline'],['profile','Life Profile'],['accuracy','Accuracy']];
- return <main><aside><div className="brand">JYOTISH<br/><span>ORACLE</span><em>LIFE INTELLIGENCE</em></div>{nav.map(([id,l])=><button key={id} className={tab===id?'nav active':'nav'} onClick={()=>{setTab(id);setAnswer('')}}>{l}</button>)}<div className="asideCard"><small>CURRENT PERIOD</small><b>{profile.dasha.mahadasha} / {profile.dasha.antardasha}</b><span>{profile.dasha.antardashaStart} → {profile.dasha.antardashaEnd}</span></div><div className="asideCard"><small>LIFE MODEL</small><b>{state.projects.length} projects · {state.people.length} people</b><span>{state.dreams.length} dreams · {state.decisions.length} decisions</span></div></aside><section className="content"><header><div><small>{date}</small><h1>{nav.find(x=>x[0]===tab)?.[1]}</h1></div><div className="pill">v2 · private local profile</div></header>
- {tab==='daily'&&<><div className="hero card"><div><small>YOUR FIELD TODAY</small><h2>Mars × Rahu</h2><p>Personalised to your stored projects, people, goals and recent entries. v2 does not invent live planetary transits; this is currently a dasha + life-model reading.</p><button className="primary" onClick={()=>run('daily')}>Generate today's personal field</button></div><div className="orb">♂<span>☊</span></div></div><div className="grid3">{state.projects.filter(p=>['active','rebuilding'].includes(p.status)).slice(0,3).map(p=><div className="card" key={p.id}><small>{p.status}</small><h3>{p.name}</h3><p>{p.current}</p></div>)}</div>{aq&&<div className="card question profileQuestion"><small>ONE THING I WANT TO UNDERSTAND</small><h2>{aq.question}</h2><p>{aq.reason}</p><textarea value={adaptiveAnswer} onChange={e=>setAdaptiveAnswer(e.target.value)}/><button className="primary" onClick={answerAQ}>Add this to my life model</button></div>}</>}
- {tab==='ask'&&<div className="card question"><small>ASK YOUR LIFE MODEL + JYOTISH</small><h2>What are you trying to understand?</h2><textarea value={question} onChange={e=>setQuestion(e.target.value)} placeholder="What should I prioritise this week?"/><div className="row"><button className="primary" onClick={()=>run('ask')}>Analyse</button><button onClick={()=>{const c=castIChing();setCast(c);run('ask',{cast:c})}}>Add I Ching cast</button></div></div>}
- {tab==='iching'&&<div className="split"><div className="card question"><small>DELIBERATE CAST</small><h2>One question. One cast.</h2><textarea value={question} onChange={e=>setQuestion(e.target.value)}/><button className="primary" onClick={doCast}>Cast 3 coins × 6 lines</button>{cast&&<button onClick={()=>run('ask',{cast})}>Interpret in my life context</button>}</div><div className="card castCard">{!cast?<div className="empty">No cast yet.</div>:<><h2>{cast.primary}. {cast.primaryName}</h2><div className="hex">{[...cast.lines].reverse().map((v,ri)=><div className={(v===6||v===9)?'moving':''} key={ri}><span>{6-ri}</span>{lineGlyph(v)}<em>{v}</em></div>)}</div><p>Moving: {cast.moving.length?cast.moving.join(', '):'none'}</p><h3>→ {cast.relating}. {cast.relatingName}</h3></>}</div></div>}
- {tab==='dreams'&&<><div className="split"><div className="card question"><small>DREAM DIARY</small><h2>Record what you remember.</h2><input value={dreamTitle} onChange={e=>setDreamTitle(e.target.value)} placeholder="Short title"/><textarea className="dreamBox" value={dream} onChange={e=>setDream(e.target.value)} placeholder="I was in… Then… I felt…"/><div className="row"><button className="primary" onClick={()=>analyseDream(null)}>Break the dream down</button><button onClick={()=>{const c=castIChing();setCast(c);analyseDream(c)}}>Analyse + I Ching cast</button></div></div><div className="card"><small>INTERPRETATION METHOD</small><h3>Personal → Archetypal → Spiritual → Current life</h3><p>People, places, objects, actions and emotional atmosphere are compared with your actual life model and earlier dreams. Meanings are hypotheses, not declarations.</p></div></div><div className="stack">{[...state.dreams].reverse().map(d=><div className="card" key={d.id}><small>{d.date}</small><h3>{d.title}</h3><p className="quote">{d.text}</p><div className="answerText">{d.analysis}</div></div>)}</div></>}
- {tab==='decisions'&&<><div className="card question"><small>DECISION INTELLIGENCE</small><textarea value={question} onChange={e=>setQuestion(e.target.value)} placeholder="What decision am I making?"/>{options.map((o,i)=><input key={i} value={o} onChange={e=>setOptions(options.map((x,j)=>j===i?e.target.value:x))} placeholder={`Option ${String.fromCharCode(65+i)}`}/>)}<div className="row"><button className="primary" onClick={()=>saveDecision(null)}>Compare + save</button><button onClick={()=>{const c=castIChing();setCast(c);saveDecision(c)}}>Compare + cast + save</button></div></div><div className="stack">{[...state.decisions].reverse().map(d=><div className="card" key={d.id}><small>{d.date}</small><h3>{d.question}</h3><p>{d.options.join(' · ')}</p><div className="answerText">{d.reading}</div></div>)}</div></>}
- {tab==='people'&&<><div className="grid2"><div className="card"><small>PEOPLE IN YOUR LIFE</small><div className="peopleList">{state.people.map(p=><button className={personId===p.id?'person activePerson':'person'} onClick={()=>setPersonId(p.id)} key={p.id}><b>{p.name}</b><span>{p.relationship}</span></button>)}</div></div><div className="card">{selected?<><small>RELATIONSHIP MODEL</small><h2>{selected.name}</h2><p><b>{selected.relationship}</b></p><p>{selected.presence}</p>{selected.birthday&&<p>Birthday: {selected.birthday}</p>}<textarea value={question} onChange={e=>setQuestion(e.target.value)} placeholder={`What do I want to understand about ${selected.name}?`}/><button className="primary" onClick={()=>run('person',{question:`Person: ${selected.name}. ${question}`})}>Understand this relationship</button></>:<div className="empty">Select someone.</div>}</div></div><div className="card formGrid"><small>ADD PERSON</small><input placeholder="Name" value={newPerson.name} onChange={e=>setNewPerson({...newPerson,name:e.target.value})}/><input placeholder="Relationship" value={newPerson.relationship} onChange={e=>setNewPerson({...newPerson,relationship:e.target.value})}/><input placeholder="Birthday if known" value={newPerson.birthday} onChange={e=>setNewPerson({...newPerson,birthday:e.target.value})}/><textarea placeholder="What presence do they hold in your life?" value={newPerson.presence} onChange={e=>setNewPerson({...newPerson,presence:e.target.value})}/><button onClick={addPerson}>Add person</button></div></>}
- {tab==='projects'&&<div className="projectGrid">{state.projects.map(p=><div className="card" key={p.id}><small>{p.status}</small><h2>{p.name}</h2><p>{p.current}</p><div className="vision"><b>Vision</b><span>{p.vision}</span></div></div>)}</div>}
- {tab==='timeline'&&<div className="timeline">{[...state.events].sort((a,b)=>String(b.date).localeCompare(String(a.date))).map((e,i)=><div className="timelineItem" key={i}><span>{e.date}</span><div><small>{e.category}</small><b>{e.title}</b></div></div>)}</div>}
- {tab==='profile'&&<><div className="grid2"><div className="card"><small>MAJOR AREAS</small><h2>{state.profile.name}</h2><ul>{state.profile.majorAreas.map(x=><li key={x}>{x}</li>)}</ul></div><div className="card"><small>12-MONTH DIRECTION</small><ul>{state.goals.map(x=><li key={x}>{x}</li>)}</ul></div></div><div className="card"><small>WORKING PATTERNS — HYPOTHESES, NOT FACTS</small>{state.patterns.map((p,i)=><div className="pattern" key={i}><span>{p.type}</span><p>{p.text}</p></div>)}</div><div className="card question"><small>QUICK JOURNAL</small><textarea value={journal} onChange={e=>setJournal(e.target.value)} placeholder="What's happening in life today that the system should know?"/><button className="primary" onClick={saveJournal}>Save journal entry</button></div><div className="card row"><button onClick={()=>exportState(state)}>Export my life profile JSON</button><button className="danger" onClick={()=>{if(confirm('Reset learned local data?')){resetState();location.reload()}}}>Reset local profile</button></div></>}
- {tab==='accuracy'&&<><div className="card"><small>BIRTH TIME</small><h2>{birthTimeLabel()}</h2><p>Working birth time is estimated. Exact Ascendant, houses and sensitive vargas remain provisional.</p></div><div className="grid2"><div className="card"><small>TIME-STABLE</small><ul>{profile.accuracyPolicy.stable.map(x=><li key={x}>{x}</li>)}</ul></div><div className="card"><small>TIME-SENSITIVE</small><ul>{profile.accuracyPolicy.sensitive.map(x=><li key={x}>{x}</li>)}</ul></div></div></>}
- {(loading||answer)&&<div className="answer card"><small>ORACLE SYNTHESIS</small>{loading?<p className="pulse">Reading your life model…</p>:<div className="answerText">{answer}</div>}</div>}</section></main>}
+
+import { useEffect, useMemo, useState } from 'react';
+import { profile, birthTimeLabel } from '../lib/profile';
+import { castIChing, lineGlyph } from '../lib/iching';
+import { loadState, saveState, resetState, exportState } from '../lib/storage';
+import { nextQuestion } from '../lib/questions';
+
+const uid = (p='x') => `${p}-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
+const today = () => new Date().toISOString().slice(0,10);
+
+export default function Home() {
+  const [tab,setTab] = useState('daily');
+  const [state,setState] = useState(null);
+  const [question,setQuestion] = useState('');
+  const [answer,setAnswer] = useState('');
+  const [loading,setLoading] = useState(false);
+  const [cast,setCast] = useState(null);
+  const [dream,setDream] = useState('');
+  const [dreamTitle,setDreamTitle] = useState('');
+  const [personId,setPersonId] = useState('');
+  const [adaptiveAnswer,setAdaptiveAnswer] = useState('');
+  const [options,setOptions] = useState(['','','']);
+  const [journal,setJournal] = useState('');
+  const [newPerson,setNewPerson] = useState({name:'',relationship:'',birthday:'',presence:''});
+
+  const date = useMemo(() => new Intl.DateTimeFormat('en-GB',{dateStyle:'full'}).format(new Date()),[]);
+
+  useEffect(() => setState(loadState()),[]);
+  useEffect(() => { if(state) saveState(state); },[state]);
+
+  if(!state) return <main className="loadingShell">Loading your life model…</main>;
+
+  const aq = nextQuestion(state);
+  const selected = state.people.find(p => p.id === personId);
+  const nav = [['daily','Daily'],['ask','Ask'],['iching','I Ching'],['dreams','Dreams'],['decisions','Decisions'],['people','People'],['projects','Projects'],['timeline','Timeline'],['profile','Life Profile'],['accuracy','Accuracy']];
+
+  async function run(mode,payload={}) {
+    setLoading(true); setAnswer('');
+    try {
+      const r = await fetch('/api/read',{
+        method:'POST',
+        headers:{'content-type':'application/json'},
+        body:JSON.stringify({mode,question:payload.question ?? question,cast:payload.cast ?? null,options:payload.options ?? null,lifeState:state})
+      });
+      const j = await r.json();
+      setAnswer(j.text || '');
+      return j.text || '';
+    } catch(e) {
+      const t = 'Reading failed: ' + e.message;
+      setAnswer(t); return t;
+    } finally { setLoading(false); }
+  }
+
+  function doCast() {
+    const c = castIChing();
+    setCast(c);
+    setState(s => ({...s,memory:[...(s.memory||[]),{id:uid('signal'),type:'symbolic_signal',createdAt:new Date().toISOString(),text:`I Ching: ${c.primary} ${c.primaryName} → ${c.relating} ${c.relatingName}`}] }));
+  }
+
+  async function analyseDream(c=null) {
+    if(!dream.trim()) return;
+    const text = await run('dream',{question:dream,cast:c});
+    setState(s => ({...s,dreams:[...s.dreams,{id:uid('dream'),date:today(),title:dreamTitle||'Untitled dream',text:dream,cast:c,analysis:text}]}));
+    setDream(''); setDreamTitle('');
+  }
+
+  async function saveDecision(c=null) {
+    if(!question.trim()) return;
+    const opts = options.filter(Boolean);
+    const text = await run('compare',{question,cast:c,options:opts});
+    setState(s => ({...s,decisions:[...s.decisions,{id:uid('decision'),date:today(),question,options:opts,cast:c,reading:text,outcome:''}]}));
+  }
+
+  function addPerson() {
+    if(!newPerson.name.trim()) return;
+    setState(s => ({...s,people:[...s.people,{...newPerson,id:uid('person'),active:true}]}));
+    setNewPerson({name:'',relationship:'',birthday:'',presence:''});
+  }
+
+  function answerAQ() {
+    if(!aq || !adaptiveAnswer.trim()) return;
+    setState(s => ({...s,questionsAnswered:[...s.questionsAnswered,{id:aq.id,question:aq.question,answer:adaptiveAnswer,date:today()}]}));
+    setAdaptiveAnswer('');
+  }
+
+  function saveJournal() {
+    if(!journal.trim()) return;
+    setState(s => ({...s,journal:[...s.journal,{id:uid('journal'),date:today(),text:journal}]}));
+    setJournal('');
+  }
+
+  return <main>
+    <aside>
+      <div className="brand">JYOTISH<br/><span>ORACLE</span><em>LIFE INTELLIGENCE</em></div>
+      {nav.map(([id,label]) => <button key={id} className={tab===id?'nav active':'nav'} onClick={() => {setTab(id);setAnswer('')}}>{label}</button>)}
+      <div className="asideCard"><small>CURRENT PERIOD</small><b>{profile.dasha.mahadasha} / {profile.dasha.antardasha}</b><span>{profile.dasha.antardashaStart} → {profile.dasha.antardashaEnd}</span></div>
+      <div className="asideCard"><small>LIFE MODEL</small><b>{state.projects.length} projects · {state.people.length} people</b><span>{state.dreams.length} dreams · {state.decisions.length} decisions</span></div>
+    </aside>
+
+    <section className="content">
+      <header><div><small>{date}</small><h1>{nav.find(x=>x[0]===tab)?.[1]}</h1></div><div className="pill">v2.0.1 · clean build</div></header>
+
+      {tab==='daily' && <>
+        <div className="hero card">
+          <div><small>YOUR FIELD TODAY</small><h2>Mars × Rahu</h2><p>Personalised to your stored projects, people, goals and recent entries. Live transits are not fabricated in this build.</p><button className="primary" onClick={() => run('daily')}>Generate today's personal field</button></div>
+          <div className="orb">♂<span>☊</span></div>
+        </div>
+        <div className="grid3">
+          {state.projects.filter(p => ['active','rebuilding'].includes(p.status)).slice(0,3).map(p => <div className="card" key={p.id}><small>{p.status}</small><h3>{p.name}</h3><p>{p.current}</p></div>)}
+        </div>
+        {aq && <div className="card question profileQuestion"><small>ONE THING I WANT TO UNDERSTAND</small><h2>{aq.question}</h2><p>{aq.reason}</p><textarea value={adaptiveAnswer} onChange={e=>setAdaptiveAnswer(e.target.value)} /><button className="primary" onClick={answerAQ}>Add this to my life model</button></div>}
+      </>}
+
+      {tab==='ask' && <div className="card question"><small>ASK YOUR LIFE MODEL + JYOTISH</small><h2>What are you trying to understand?</h2><textarea value={question} onChange={e=>setQuestion(e.target.value)} placeholder="What should I prioritise this week?" /><div className="row"><button className="primary" onClick={()=>run('ask')}>Analyse</button><button onClick={()=>{const c=castIChing();setCast(c);run('ask',{cast:c})}}>Add I Ching cast</button></div></div>}
+
+      {tab==='iching' && <div className="split">
+        <div className="card question"><small>DELIBERATE CAST</small><h2>One question. One cast.</h2><textarea value={question} onChange={e=>setQuestion(e.target.value)} /><button className="primary" onClick={doCast}>Cast 3 coins × 6 lines</button>{cast && <button onClick={()=>run('ask',{cast})}>Interpret in my life context</button>}</div>
+        <div className="card castCard">{!cast?<div className="empty">No cast yet.</div>:<><h2>{cast.primary}. {cast.primaryName}</h2><div className="hex">{[...cast.lines].reverse().map((v,ri)=><div className={(v===6||v===9)?'moving':''} key={ri}><span>{6-ri}</span>{lineGlyph(v)}<em>{v}</em></div>)}</div><p>Moving: {cast.moving.length?cast.moving.join(', '):'none'}</p><h3>→ {cast.relating}. {cast.relatingName}</h3></>}</div>
+      </div>}
+
+      {tab==='dreams' && <>
+        <div className="split">
+          <div className="card question"><small>DREAM DIARY</small><h2>Record what you remember.</h2><input value={dreamTitle} onChange={e=>setDreamTitle(e.target.value)} placeholder="Short title" /><textarea className="dreamBox" value={dream} onChange={e=>setDream(e.target.value)} placeholder="I was in… Then… I felt…" /><div className="row"><button className="primary" onClick={()=>analyseDream(null)}>Break the dream down</button><button onClick={()=>{const c=castIChing();setCast(c);analyseDream(c)}}>Analyse + I Ching cast</button></div></div>
+          <div className="card"><small>INTERPRETATION METHOD</small><h3>Personal → Archetypal → Spiritual → Current life</h3><p>People, places, objects, actions and emotional atmosphere are compared with your actual life model and earlier dreams.</p></div>
+        </div>
+        <div className="stack">{[...state.dreams].reverse().map(d=><div className="card" key={d.id}><small>{d.date}</small><h3>{d.title}</h3><p className="quote">{d.text}</p><div className="answerText">{d.analysis}</div></div>)}</div>
+      </>}
+
+      {tab==='decisions' && <>
+        <div className="card question"><small>DECISION INTELLIGENCE</small><textarea value={question} onChange={e=>setQuestion(e.target.value)} placeholder="What decision am I making?" />{options.map((o,i)=><input key={i} value={o} onChange={e=>setOptions(options.map((x,j)=>j===i?e.target.value:x))} placeholder={`Option ${String.fromCharCode(65+i)}`} />)}<div className="row"><button className="primary" onClick={()=>saveDecision(null)}>Compare + save</button><button onClick={()=>{const c=castIChing();setCast(c);saveDecision(c)}}>Compare + cast + save</button></div></div>
+        <div className="stack">{[...state.decisions].reverse().map(d=><div className="card" key={d.id}><small>{d.date}</small><h3>{d.question}</h3><p>{d.options.join(' · ')}</p><div className="answerText">{d.reading}</div></div>)}</div>
+      </>}
+
+      {tab==='people' && <>
+        <div className="grid2">
+          <div className="card"><small>PEOPLE IN YOUR LIFE</small><div className="peopleList">{state.people.map(p=><button className={personId===p.id?'person activePerson':'person'} onClick={()=>setPersonId(p.id)} key={p.id}><b>{p.name}</b><span>{p.relationship}</span></button>)}</div></div>
+          <div className="card">{selected?<><small>RELATIONSHIP MODEL</small><h2>{selected.name}</h2><p><b>{selected.relationship}</b></p><p>{selected.presence}</p>{selected.birthday&&<p>Birthday: {selected.birthday}</p>}<textarea value={question} onChange={e=>setQuestion(e.target.value)} placeholder={`What do I want to understand about ${selected.name}?`} /><button className="primary" onClick={()=>run('person',{question:`Person: ${selected.name}. ${question}`})}>Understand this relationship</button></>:<div className="empty">Select someone.</div>}</div>
+        </div>
+        <div className="card formGrid"><small>ADD PERSON</small><input placeholder="Name" value={newPerson.name} onChange={e=>setNewPerson({...newPerson,name:e.target.value})}/><input placeholder="Relationship" value={newPerson.relationship} onChange={e=>setNewPerson({...newPerson,relationship:e.target.value})}/><input placeholder="Birthday if known" value={newPerson.birthday} onChange={e=>setNewPerson({...newPerson,birthday:e.target.value})}/><textarea placeholder="What presence do they hold in your life?" value={newPerson.presence} onChange={e=>setNewPerson({...newPerson,presence:e.target.value})}/><button onClick={addPerson}>Add person</button></div>
+      </>}
+
+      {tab==='projects' && <div className="projectGrid">{state.projects.map(p=><div className="card" key={p.id}><small>{p.status}</small><h2>{p.name}</h2><p>{p.current}</p><div className="vision"><b>Vision</b><span>{p.vision}</span></div></div>)}</div>}
+
+      {tab==='timeline' && <div className="timeline">{[...state.events].sort((a,b)=>String(b.date).localeCompare(String(a.date))).map((e,i)=><div className="timelineItem" key={i}><span>{e.date}</span><div><small>{e.category}</small><b>{e.title}</b></div></div>)}</div>}
+
+      {tab==='profile' && <>
+        <div className="grid2"><div className="card"><small>MAJOR AREAS</small><h2>{state.profile.name}</h2><ul>{state.profile.majorAreas.map(x=><li key={x}>{x}</li>)}</ul></div><div className="card"><small>12-MONTH DIRECTION</small><ul>{state.goals.map(x=><li key={x}>{x}</li>)}</ul></div></div>
+        <div className="card"><small>WORKING PATTERNS — HYPOTHESES, NOT FACTS</small>{state.patterns.map((p,i)=><div className="pattern" key={i}><span>{p.type}</span><p>{p.text}</p></div>)}</div>
+        <div className="card question"><small>QUICK JOURNAL</small><textarea value={journal} onChange={e=>setJournal(e.target.value)} placeholder="What's happening in life today that the system should know?" /><button className="primary" onClick={saveJournal}>Save journal entry</button></div>
+        <div className="card row"><button onClick={()=>exportState(state)}>Export my life profile JSON</button><button className="danger" onClick={()=>{if(confirm('Reset learned local data?')){resetState();location.reload()}}}>Reset local profile</button></div>
+      </>}
+
+      {tab==='accuracy' && <>
+        <div className="card"><small>BIRTH TIME</small><h2>{birthTimeLabel()}</h2><p>Working birth time is estimated. Exact Ascendant, houses and sensitive vargas remain provisional.</p></div>
+        <div className="grid2"><div className="card"><small>TIME-STABLE</small><ul>{profile.accuracyPolicy.stable.map(x=><li key={x}>{x}</li>)}</ul></div><div className="card"><small>TIME-SENSITIVE</small><ul>{profile.accuracyPolicy.sensitive.map(x=><li key={x}>{x}</li>)}</ul></div></div>
+      </>}
+
+      {(loading||answer) && <div className="answer card"><small>ORACLE SYNTHESIS</small>{loading?<p className="pulse">Reading your life model…</p>:<div className="answerText">{answer}</div>}</div>}
+    </section>
+  </main>;
+}
