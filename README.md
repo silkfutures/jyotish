@@ -49,3 +49,14 @@ The next astrology milestone should be a deterministic calculation service, not 
 ## Storage warning
 
 This prototype stores learned data in `localStorage`. Export the Life Map JSON regularly. Multi-user sharing should not happen until storage is moved behind authenticated per-user isolation.
+
+
+## v3.1 — Dream Threads
+
+- Dream archive entries now open as full threads.
+- Rename an untitled dream after saving it.
+- Edit the original dream text and waking emotion later.
+- Add later remembered details without rewriting the original record.
+- Cast I Ching on an archived dream at any later time.
+- Later casts are timestamped and explicitly treated as new consultations.
+- Follow-up casts and interpretations remain attached chronologically to the original dream.

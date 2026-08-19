@@ -55,6 +55,9 @@ export default function Home(){
   const [dream,setDream]=useState('');
   const [dreamTitle,setDreamTitle]=useState('');
   const [dreamEmotion,setDreamEmotion]=useState('');
+  const [openDreamId,setOpenDreamId]=useState(null);
+  const [dreamFollowup,setDreamFollowup]=useState('');
+  const [rememberedDetail,setRememberedDetail]=useState('');
   const [personId,setPersonId]=useState('');
   const [newPersonOpen,setNewPersonOpen]=useState(false);
   const [newPerson,setNewPerson]=useState({name:'',relationship:'',birthday:'',presence:'',tags:[]});
@@ -74,6 +77,7 @@ export default function Home(){
   const selected=state.people.find(p=>p.id===personId);
   const activeProjects=[...state.projects].sort((a,b)=>(b.weight||0)-(a.weight||0)).filter(p=>p.status!=='idea');
   const recentDream=state.dreams?.at(-1);
+  const openDream=(state.dreams||[]).find(d=>d.id===openDreamId) || null;
   const recentDecision=state.decisions?.at(-1);
 
   async function run(mode,payload={}){
@@ -131,6 +135,73 @@ export default function Home(){
       id:uid('dream'),date:isoDay(),title:dreamTitle||'Untitled dream',text:dream,emotion:dreamEmotion,cast:c,analysis:text
     }]}));
     setDream('');setDreamTitle('');setDreamEmotion('');
+  }
+
+
+  function updateDream(id, patch){
+    setState(s=>({...s,dreams:(s.dreams||[]).map(d=>d.id===id?{...d,...patch}:d)}));
+  }
+
+  function addRememberedDetail(){
+    if(!openDream || !rememberedDetail.trim()) return;
+    const detail={
+      id:uid('detail'),
+      text:rememberedDetail.trim(),
+      addedAt:new Date().toISOString()
+    };
+    updateDream(openDream.id,{
+      rememberedDetails:[...(openDream.rememberedDetails||[]),detail]
+    });
+    setRememberedDetail('');
+  }
+
+  async function castOnArchivedDream(){
+    if(!openDream) return;
+    const c=deliberateCast();
+    const followup=dreamFollowup.trim() || 'What is this dream trying to bring to my attention now?';
+    const remembered=(openDream.rememberedDetails||[]).map(x=>x.text).join(' | ');
+    const prompt=`ARCHIVED DREAM FOLLOW-UP
+
+Original dream title: ${openDream.title || 'Untitled dream'}
+Original dream date: ${openDream.date || ''}
+Original dream:
+${openDream.text || ''}
+
+Emotion on waking:
+${openDream.emotion || 'Not recorded'}
+
+Original interpretation:
+${openDream.analysis || 'No previous interpretation saved'}
+
+Later remembered details:
+${remembered || 'None'}
+
+Current follow-up question:
+${followup}
+
+This is a NEW I Ching consultation performed now, after the original dream. Do not imply the cast was part of the original dream entry. Interpret how the new cast reframes, deepens or challenges the earlier reading, and clearly distinguish the original dream material from the later symbolic consultation.`;
+
+    const text=await run('dream',{
+      question:prompt,
+      title:openDream.title,
+      emotion:openDream.emotion,
+      cast:c
+    });
+
+    const entry={
+      id:uid('dreamcast'),
+      createdAt:new Date().toISOString(),
+      question:followup,
+      cast:c,
+      interpretation:text
+    };
+
+    setState(s=>({...s,dreams:(s.dreams||[]).map(d=>
+      d.id===openDream.id
+        ? {...d,followups:[...(d.followups||[]),entry]}
+        : d
+    )}));
+    setDreamFollowup('');
   }
 
   async function analyseDecision(withCast=false){
@@ -280,24 +351,134 @@ export default function Home(){
       </>}
 
       {tab==='dreams' && <>
-        <div className="pageHead"><small>DREAM INTELLIGENCE</small><h1>Your unconscious has a vocabulary.</h1><p>The aim is to learn yours — not impose a generic dream dictionary.</p></div>
-        <div className="dreamGrid">
-          <div className="dreamEntry">
-            <input className="titleInput" value={dreamTitle} onChange={e=>setDreamTitle(e.target.value)} placeholder="Name this dream"/>
-            <textarea value={dream} onChange={e=>setDream(e.target.value)} placeholder="Start wherever you remember. People, places, atmosphere, details that felt strangely important…"/>
-            <input value={dreamEmotion} onChange={e=>setDreamEmotion(e.target.value)} placeholder="How did you feel on waking?"/>
-            <div className="askActions"><button className="cta" onClick={()=>analyseDream(false)} disabled={loading}>Interpret dream →</button><button className="ghost" onClick={()=>analyseDream(true)}>Dream + I Ching</button></div>
-            <SignalAnswer loading={loading} text={answer} errorRef={answerRef}/>
+        {!openDream ? <>
+          <div className="pageHead"><small>DREAM INTELLIGENCE</small><h1>Your unconscious has a vocabulary.</h1><p>The aim is to learn yours — not impose a generic dream dictionary.</p></div>
+          <div className="dreamGrid">
+            <div className="dreamEntry">
+              <input className="titleInput" value={dreamTitle} onChange={e=>setDreamTitle(e.target.value)} placeholder="Name this dream — optional"/>
+              <textarea value={dream} onChange={e=>setDream(e.target.value)} placeholder="Start wherever you remember. People, places, atmosphere, details that felt strangely important…"/>
+              <input value={dreamEmotion} onChange={e=>setDreamEmotion(e.target.value)} placeholder="How did you feel on waking?"/>
+              <div className="askActions"><button className="cta" onClick={()=>analyseDream(false)} disabled={loading}>Interpret dream →</button><button className="ghost" onClick={()=>analyseDream(true)}>Dream + I Ching</button></div>
+              <SignalAnswer loading={loading} text={answer} errorRef={answerRef}/>
+            </div>
+            <aside className="dreamMethod">
+              <div><span>01</span><b>Personal</b><p>What the image means in your actual biography.</p></div>
+              <div><span>02</span><b>Archetypal</b><p>The deeper psychological movement.</p></div>
+              <div><span>03</span><b>Spiritual</b><p>Metaphysical and religious symbolism as hypothesis.</p></div>
+              <div><span>04</span><b>Life resonance</b><p>Where the dream touches projects, people and choices now.</p></div>
+            </aside>
           </div>
-          <aside className="dreamMethod">
-            <div><span>01</span><b>Personal</b><p>What the image means in your actual biography.</p></div>
-            <div><span>02</span><b>Archetypal</b><p>The deeper psychological movement.</p></div>
-            <div><span>03</span><b>Spiritual</b><p>Metaphysical and religious symbolism as hypothesis.</p></div>
-            <div><span>04</span><b>Life resonance</b><p>Where the dream touches projects, people and choices now.</p></div>
-          </aside>
-        </div>
-        <div className="archiveHead"><h3>Dream archive</h3><span>{state.dreams.length} recorded</span></div>
-        <div className="archiveGrid">{[...state.dreams].reverse().map(d=><article key={d.id} className="archiveCard"><small>{d.date}</small><h3>{d.title}</h3><p>{d.text}</p><button onClick={()=>{setAnswer(d.analysis);answerRef.current?.scrollIntoView({behavior:'smooth'})}}>Open interpretation →</button></article>)}</div>
+
+          <div className="archiveHead"><h3>Dream archive</h3><span>{state.dreams.length} recorded</span></div>
+          <div className="archiveGrid">{[...state.dreams].reverse().map(d=>
+            <article key={d.id} className="archiveCard">
+              <small>{d.date}</small>
+              <h3>{d.title || 'Untitled dream'}</h3>
+              <p>{d.text}</p>
+              <div className="archiveMeta">
+                <span>{(d.followups||[]).length} later cast{(d.followups||[]).length===1?'':'s'}</span>
+                <span>{(d.rememberedDetails||[]).length} added detail{(d.rememberedDetails||[]).length===1?'':'s'}</span>
+              </div>
+              <button onClick={()=>{setOpenDreamId(d.id);setAnswer('');window.scrollTo({top:0,behavior:'smooth'})}}>Open dream thread →</button>
+            </article>
+          )}</div>
+        </> : <>
+          <div className="dreamThreadHead">
+            <button className="backLink" onClick={()=>{setOpenDreamId(null);setAnswer('');setDreamFollowup('');setRememberedDetail('')}}>← Dream archive</button>
+            <div className="threadDate">{openDream.date}</div>
+          </div>
+
+          <div className="dreamThreadLayout">
+            <section className="dreamThreadMain">
+              <div className="threadHero">
+                <small>DREAM THREAD</small>
+                <input
+                  className="threadTitleInput"
+                  value={openDream.title || ''}
+                  onChange={e=>updateDream(openDream.id,{title:e.target.value})}
+                  placeholder="Untitled dream — click to name it"
+                />
+                <div className="threadMeta">
+                  <span>{openDream.emotion ? `Woke feeling: ${openDream.emotion}` : 'Waking emotion not recorded'}</span>
+                  <span>{(openDream.followups||[]).length} follow-up cast{(openDream.followups||[]).length===1?'':'s'}</span>
+                </div>
+              </div>
+
+              <div className="threadSection">
+                <div className="threadSectionHead"><small>ORIGINAL DREAM</small><span>Editable</span></div>
+                <textarea
+                  className="threadDreamText"
+                  value={openDream.text || ''}
+                  onChange={e=>updateDream(openDream.id,{text:e.target.value})}
+                />
+                <input
+                  className="threadEmotionInput"
+                  value={openDream.emotion || ''}
+                  onChange={e=>updateDream(openDream.id,{emotion:e.target.value})}
+                  placeholder="How did you feel on waking?"
+                />
+              </div>
+
+              <div className="threadSection">
+                <div className="threadSectionHead"><small>ORIGINAL INTERPRETATION</small><span>Saved with this dream</span></div>
+                <div className="threadReading">{openDream.analysis || 'No interpretation saved.'}</div>
+              </div>
+
+              <div className="threadSection">
+                <div className="threadSectionHead"><small>LATER REMEMBERED DETAILS</small><span>{(openDream.rememberedDetails||[]).length}</span></div>
+                {(openDream.rememberedDetails||[]).length>0 &&
+                  <div className="detailList">{openDream.rememberedDetails.map(item=>
+                    <div key={item.id} className="detailItem">
+                      <span>{new Date(item.addedAt).toLocaleDateString('en-GB')}</span>
+                      <p>{item.text}</p>
+                    </div>
+                  )}</div>
+                }
+                <textarea value={rememberedDetail} onChange={e=>setRememberedDetail(e.target.value)} placeholder="Remembered something later? Add it without rewriting the original dream."/>
+                <button className="smallCta" onClick={addRememberedDetail}>Add remembered detail</button>
+              </div>
+
+              {(openDream.followups||[]).length>0 && <div className="threadSection">
+                <div className="threadSectionHead"><small>FOLLOW-UP I CHING CONSULTATIONS</small><span>{openDream.followups.length}</span></div>
+                <div className="followupList">{openDream.followups.map((f,i)=>
+                  <article className="followupCard" key={f.id}>
+                    <div className="followupTop">
+                      <div><small>CAST {String(i+1).padStart(2,'0')} · {new Date(f.createdAt).toLocaleString('en-GB')}</small><h3>{f.question}</h3></div>
+                      <div className="castBadge">{f.cast.primary} → {f.cast.relating}</div>
+                    </div>
+                    <div className="castMini">
+                      <b>{f.cast.primary}. {f.cast.primaryName}</b>
+                      <span>Moving: {f.cast.moving.length?f.cast.moving.join(', '):'none'}</span>
+                      <b>→ {f.cast.relating}. {f.cast.relatingName}</b>
+                    </div>
+                    <div className="threadReading">{f.interpretation}</div>
+                  </article>
+                )}</div>
+              </div>}
+
+              <SignalAnswer loading={loading} text={answer} errorRef={answerRef}/>
+            </section>
+
+            <aside className="dreamThreadSide">
+              <div className="laterCastCard">
+                <small>CAST ON THIS DREAM NOW</small>
+                <h3>A new consultation, attached to the same thread.</h3>
+                <p>This cast happens now — it does not rewrite the original dream or pretend you cast when you first recorded it.</p>
+                <textarea
+                  value={dreamFollowup}
+                  onChange={e=>setDreamFollowup(e.target.value)}
+                  placeholder="Optional question, e.g. What is this dream trying to bring to my attention now?"
+                />
+                <button className="cta" onClick={castOnArchivedDream} disabled={loading}>{loading?'Casting + reading…':'Cast I Ching on this dream →'}</button>
+              </div>
+
+              <div className="threadPrinciple">
+                <small>WHY THREADS?</small>
+                <p>Dream meaning develops. You can remember details later, revisit the symbolism, and add new consultations without destroying the original record.</p>
+              </div>
+            </aside>
+          </div>
+        </>}
       </>}
 
       {tab==='people' && <>

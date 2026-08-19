@@ -220,3 +220,67 @@ h1{font-family:Georgia,"Times New Roman",serif;font-size:clamp(43px,5vw,68px);fo
  .shell{display:block}.rail{position:fixed;bottom:0;top:auto;height:auto;width:100%;border-right:0;border-top:1px solid var(--line);padding:7px;background:rgba(246,243,235,.94)}.logo,.railBottom{display:none}.rail nav{display:grid;grid-template-columns:repeat(8,1fr);overflow:auto}.navItem,.navActive{font-size:0;padding:10px 6px}.navItem>span{font-size:16px}.main{padding:30px 15px 90px}
  .topbar{display:block}.statusPill{display:none}h1{font-size:44px}.commandGrid,.pulseGrid,.lowerGrid,.labGrid,.dreamGrid,.peopleLayout,.lifeColumns,.accuracyBand,.lifeSummary{grid-template-columns:1fr}.fieldCard{padding:27px;min-height:390px}.fieldCard h2{margin-top:52px}.sideSignal{grid-template-columns:1fr}.promptGrid,.archiveGrid,.patternCards{grid-template-columns:1fr}.optionStack,.twoFields{grid-template-columns:1fr}.methodCard{display:none}.projectList article{grid-template-columns:43px 1fr}.projectVision{grid-column:2;border-left:0;border-top:1px solid var(--line);padding-left:0;padding-top:12px}.newPerson{grid-template-columns:1fr}.newPerson textarea{grid-column:auto}.peopleIndex{max-height:280px;overflow:auto}
 }
+
+
+/* v3.1 — Dream Threads */
+.archiveMeta{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 5px}
+.archiveMeta span{font-size:8px;color:var(--muted);background:#eee9df;border-radius:999px;padding:5px 7px}
+.dreamThreadHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px}
+.backLink{border:0;background:transparent;padding:0;color:#61577e;font-weight:750}
+.threadDate{font-size:10px;color:var(--muted);letter-spacing:.08em}
+.dreamThreadLayout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:18px}
+.dreamThreadMain{display:grid;gap:14px}
+.threadHero,.threadSection,.laterCastCard,.threadPrinciple{
+  border:1px solid var(--line);border-radius:22px;background:rgba(255,253,248,.76);box-shadow:0 12px 38px rgba(40,35,28,.035)
+}
+.threadHero{padding:28px}
+.threadHero>small,.threadSectionHead small,.laterCastCard>small,.threadPrinciple>small{
+  font-size:9px;letter-spacing:.14em;color:#766aaf
+}
+.threadTitleInput{
+  width:100%;border:0;background:transparent;font-family:Georgia,serif;font-size:clamp(34px,4vw,52px);
+  letter-spacing:-.035em;line-height:1.05;padding:8px 0;color:var(--ink);outline:none
+}
+.threadTitleInput::placeholder{color:#aaa49a}
+.threadMeta{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.threadMeta span{font-size:9px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:6px 8px}
+.threadSection{padding:24px}
+.threadSectionHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.threadSectionHead span{font-size:9px;color:var(--muted)}
+.threadDreamText,.threadSection>textarea,.laterCastCard textarea{
+  width:100%;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.55);padding:14px;outline:none;color:var(--ink)
+}
+.threadDreamText{min-height:220px;font-family:Georgia,serif;font-size:17px;line-height:1.65}
+.threadEmotionInput{
+  width:100%;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.55);padding:11px 13px;margin-top:10px;outline:none
+}
+.threadReading{white-space:pre-wrap;font-size:12px;line-height:1.78;color:#4f4b45}
+.detailList{display:grid;gap:8px;margin-bottom:12px}
+.detailItem{display:grid;grid-template-columns:90px 1fr;gap:10px;border-top:1px solid var(--line);padding-top:10px}
+.detailItem span{font-size:9px;color:var(--muted)}
+.detailItem p{margin:0;font-size:11px;line-height:1.55}
+.followupList{display:grid;gap:14px}
+.followupCard{border:1px solid #d8d0fa;background:#f8f6ff;border-radius:16px;padding:18px}
+.followupTop{display:flex;justify-content:space-between;gap:14px;align-items:start}
+.followupTop small{font-size:8px;color:#766aaf;letter-spacing:.1em}
+.followupTop h3{font-family:Georgia,serif;font-size:20px;font-weight:500;margin:5px 0 10px}
+.castBadge{white-space:nowrap;border-radius:999px;background:var(--dark);color:var(--acid);padding:7px 9px;font-size:10px;font-weight:800}
+.castMini{display:flex;gap:8px;flex-wrap:wrap;align-items:center;border-top:1px solid #ded8fa;border-bottom:1px solid #ded8fa;padding:10px 0;margin-bottom:12px}
+.castMini b{font-size:10px}.castMini span{font-size:9px;color:var(--muted)}
+.dreamThreadSide{display:grid;gap:14px;align-content:start;position:sticky;top:28px}
+.laterCastCard,.threadPrinciple{padding:21px}
+.laterCastCard h3{font-family:Georgia,serif;font-size:25px;font-weight:500;line-height:1.12;margin:9px 0}
+.laterCastCard p,.threadPrinciple p{font-size:10px;color:var(--muted);line-height:1.6}
+.laterCastCard textarea{min-height:120px;margin:10px 0}
+.laterCastCard .cta{width:100%}
+@media(max-width:900px){
+  .dreamThreadLayout{grid-template-columns:1fr}
+  .dreamThreadSide{position:static}
+}
+@media(max-width:600px){
+  .threadHero,.threadSection{padding:18px}
+  .threadTitleInput{font-size:34px}
+  .detailItem{grid-template-columns:1fr}
+  .followupTop{display:block}
+  .castBadge{display:inline-block;margin-bottom:8px}
+}
